@@ -1,0 +1,6 @@
+azure-functions==1.18.0
+pandas==2.2.2
+scikit-learn==1.4.2
+joblib==1.4.2
+category-encoders==2.6.3
+azure-storage-blob==12.19.1
