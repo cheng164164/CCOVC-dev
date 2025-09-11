@@ -8,3 +8,4 @@ category-encoders==2.6.3
 
 # Optional but helpful for type validation and async support
 pydantic==2.7.1
+requests
