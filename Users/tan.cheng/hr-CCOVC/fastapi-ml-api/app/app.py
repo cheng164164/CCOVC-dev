@@ -47,6 +47,10 @@ app = FastAPI()
 # Class mapping
 class_mapping = {0: "CC", 1: "OVC"}
 
+@app.get("/")
+def read_root():
+    return {"message": "Hello from FastAPI!"}
+
 @app.post("/predict")
 def predict(input_data: Union[InputData, List[InputData]]):
     if isinstance(input_data, list):
