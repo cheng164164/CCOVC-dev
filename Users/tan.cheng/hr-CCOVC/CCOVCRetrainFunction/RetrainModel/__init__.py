@@ -1,52 +1,51 @@
 import pandas as pd
-import joblib
-from sklearn.ensemble import RandomForestClassifier
-from category_encoders import TargetEncoder
-from sklearn.pipeline import Pipeline
 from azure.storage.blob import BlobServiceClient
 import os
+from .preprocessing import preprocess_data
+from .training import train_and_save_model
+
 
 def main(mytimer):
-    print("Starting scheduled retraining...")
+    print("⏰ Starting scheduled retraining...")
 
-    # === Step 1: Load training data from blob ===
+    # === Setup Blob Service ===
     blob_conn_str = os.environ["AzureWebJobsStorage"]
-    container_name = "training-data"
-    file_name = "ccovc_cleaned.csv"
-
     blob_service_client = BlobServiceClient.from_connection_string(blob_conn_str)
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=file_name)
 
-    with open("/tmp/train.csv", "wb") as f:
-        f.write(blob_client.download_blob().readall())
+    # === Step 1: Load raw training data from 'raw-data' container ===
+    raw_container = "raw-data"
+    raw_file = "ccovc_raw.csv"
+    local_raw_path = "/tmp/raw.csv"
 
-    df = pd.read_csv("/tmp/train.csv")
+    raw_blob_client = blob_service_client.get_blob_client(container=raw_container, blob=raw_file)
+    with open(local_raw_path, "wb") as f:
+        f.write(raw_blob_client.download_blob().readall())
 
-    # === Step 2: Prepare features and target ===
-    selected_features = [
-        'Company (Label)', 'Position Country (Label)', 'Business unit (Label)',
-        'Division (Label)', 'Employment Classification (Label)',
-        'Employee Type (Label)', 'Employment Type (Label)'
-    ]
-    target = "CC / OVC"
+    print("📥 Raw dataset downloaded from 'raw-data' container.")
 
-    X = df[selected_features].fillna("Missing")
-    y = df[target]
+    # === Step 2: Preprocess ===
+    df = pd.read_csv(local_raw_path)
+    cleaned_df = preprocess_data(df)
 
-    # === Step 3: Create and train pipeline ===
-    pipeline = Pipeline([
-        ("encoder", TargetEncoder(cols=selected_features)),
-        ("model", RandomForestClassifier(n_estimators=100, random_state=42))
-    ])
+    local_clean_path = "/tmp/ccovc_cleaned.csv"
+    cleaned_df.to_csv(local_clean_path, index=False)
 
-    pipeline.fit(X, y)
+    # Upload cleaned dataset to 'training-data' container
+    training_container = "training-data"
+    cleaned_blob_client = blob_service_client.get_blob_client(container=training_container, blob="ccovc_cleaned.csv")
+    with open(local_clean_path, "rb") as data:
+        cleaned_blob_client.upload_blob(data, overwrite=True)
 
-    # === Step 4: Save model to blob ===
-    local_model_path = "/tmp/model.pkl"
-    joblib.dump(pipeline, local_model_path)
+    print("🧹 Cleaned dataset uploaded to 'training-data' container.")
 
-    model_blob = blob_service_client.get_blob_client(container="model-store", blob="ccovc_model.pkl")
-    with open(local_model_path, "rb") as data:
-        model_blob.upload_blob(data, overwrite=True)
+    # === Step 3: Train model ===
+    model_local_path = "/tmp/model.pkl"
+    train_and_save_model(cleaned_df, model_local_path)
 
-    print("✅ Model retrained and uploaded successfully.")
+    # === Step 4: Upload model to 'model-store' container ===
+    model_container = "model-store"
+    model_blob_client = blob_service_client.get_blob_client(container=model_container, blob="ccovc_model.pkl")
+    with open(model_local_path, "rb") as data:
+        model_blob_client.upload_blob(data, overwrite=True)
+
+    print("✅ Model retrained and uploaded successfully to 'model-store' container.")
