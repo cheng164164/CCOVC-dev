@@ -1,11 +1,13 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import joblib
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 import sys
 from typing import List, Union
-
+from pathlib import Path
 
 
 # ==========================
@@ -34,22 +36,72 @@ class RareCategoryGrouper(BaseEstimator, TransformerMixin):
 sys.modules['__main__'].RareCategoryGrouper = RareCategoryGrouper
 model = joblib.load("model/Random_Forest_CCOVC_Model.pkl")
 
-# Define input schema
-class InputData(BaseModel):
-    Company_Label: str
-    Position_Country_Label: str
-    Division_Label: str
-    Employee_Type_Label: str
-    Employment_Type_Label: str
-
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+
+# === Feature options for dropdowns ===
+legal_entity_options = ["Joy Global Underground", "Komatsu America Corp.", "Komatsu America Industries"]
+division_options = ["Parts", "Selling", "Manufacturing"]
+employment_type_options = ["Hourly", "Salaried", "Temporary Contractor"]
 
 # Class mapping
 class_mapping = {0: "CC", 1: "OVC"}
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello from FastAPI!"}
+# ## === API health check ===
+# @app.get("/")
+# def read_root():
+#     return {"message": "Hello from FastAPI!"}
+
+
+## === HTML form route ===
+@app.get("/", response_class=HTMLResponse)
+def form_page(request: Request):
+    return templates.TemplateResponse("form.html", {
+    "request": request,
+    "legal_entities": legal_entity_options,
+    "divisions": division_options,
+    "employment_types": employment_type_options
+    })
+
+
+## === Form submission route ===
+@app.post("/predict_form", response_class=HTMLResponse)
+def predict_from_form(
+    request: Request,
+    Legal_Entity_Label: str = Form(...),
+    Division_Label: str = Form(...),
+    Employment_Type_Label: str = Form(...)
+    ):
+    df = pd.DataFrame([{
+    "Legal Entity (Label)": Legal_Entity_Label,
+    "Division (Label)": Division_Label,
+    "Employment Type (Label)": Employment_Type_Label
+    }])
+
+    pred = model.predict(df)[0]
+    prob = model.predict_proba(df)[0, 1]
+
+    return templates.TemplateResponse("form.html", {
+    "request": request,
+    "legal_entities": legal_entity_options,
+    "divisions": division_options,
+    "employment_types": employment_type_options,
+    "prediction": class_mapping[pred],
+    "probability": round(float(prob), 4),
+
+    # Passed back to retain selected values
+    "Legal_Entity_Label": Legal_Entity_Label,
+    "Division_Label": Division_Label,
+    "Employment_Type_Label": Employment_Type_Label
+    })
+
+
+## === API prediction endpoint ===
+# Define input schema
+class InputData(BaseModel):
+    Legal_Entity_Label: str
+    Division_Label: str
+    Employment_Type_Label: str
 
 @app.post("/predict")
 def predict(input_data: Union[InputData, List[InputData]]):
@@ -59,10 +111,7 @@ def predict(input_data: Union[InputData, List[InputData]]):
         df = pd.DataFrame([input_data.dict()])
 
     # Rename columns to match training data
-    df.columns = [
-        "Company (Label)", "Position Country (Label)",
-        "Division (Label)", "Employee Type (Label)", "Employment Type (Label)"
-    ]
+    df.columns = ["Legal Entity (Label)", "Division (Label)", "Employment Type (Label)"]
 
     preds = model.predict(df)
     probs = model.predict_proba(df)[:, 1]
@@ -82,10 +131,7 @@ def predict_file(file: UploadFile = File(...)):
     df = pd.read_csv(file.file)
 
     # Rename columns to match training data
-    df.columns = [
-        "Company (Label)", "Position Country (Label)",
-        "Division (Label)", "Employee Type (Label)", "Employment Type (Label)"
-    ]
+    df.columns = ["Legal Entity (Label)", "Division (Label)", "Employment Type (Label)"]
 
     preds = model.predict(df)
     probs = model.predict_proba(df)[:, 1]
@@ -96,3 +142,5 @@ def predict_file(file: UploadFile = File(...)):
     })
 
     return results.to_dict(orient="records")
+
+
