@@ -7,11 +7,10 @@ BASE_URL = "http://127.0.0.1:8000"
 # ---------- 1. Single row test ----------
 def test_single():
     payload = {
-        "Company_Label": "Underground",
-        "Position_Country_Label": "United States",
-        "Division_Label": "Manufacturing",
-        "Employee_Type_Label": "Full-Time",
-        "Employment_Type_Label": "Hourly"
+        "Legal_Entity_Label": "Joy Global Underground",
+        "Business_Unit_Label": "Manufacturing",
+        "Employment_Type_Label": "Hourly",
+        "Cost_Center_Label": "Burring BFG"
     }
 
     response = requests.post(f"{BASE_URL}/predict", json=payload)
@@ -24,18 +23,22 @@ def test_single():
 def test_batch():
     payload = [
         {
-            "Company_Label": "Underground",
-            "Position_Country_Label": "United States",
-            "Division_Label": "Manufacturing",
-            "Employee_Type_Label": "Full-Time",
-            "Employment_Type_Label": "Hourly"
+            "Legal_Entity_Label": "Joy Global Underground",
+            "Business_Unit_Label": "Manufacturing",
+            "Employment_Type_Label": "Hourly",
+            "Cost_Center_Label": "Burring BFG"
         },
         {
-            "Company_Label": "Underground",
-            "Position_Country_Label": "United States",
-            "Division_Label": "Engineering",
-            "Employee_Type_Label": "Contractor",
-            "Employment_Type_Label": "Temporary"
+            "Legal_Entity_Label": "Joy Global (Canada) Ltd",
+            "Business_Unit_Label": "Engineering",
+            "Employment_Type_Label": "Salaried",
+            "Cost_Center_Label": "HR HQ Drills Bolters"
+        },
+        {
+            "Legal_Entity_Label": "Joy Global Africa Pty Ltd",
+            "Business_Unit_Label": "Quality",
+            "Employment_Type_Label": "Hourly",
+            "Cost_Center_Label": "QC Wadeville"
         }
     ]
 

@@ -13,10 +13,10 @@
             {% endfor %}
         </select><br><br>
 
-        <label>Division:</label>
-        <select name="Division_Label">
-            {% for item in divisions %}
-                <option value="{{ item }}" {% if item == Division_Label %}selected{% endif %}>{{ item }}</option>
+        <label>Business Unit:</label>
+        <select name="Business_Unit_Label">
+            {% for item in business_units %}
+                <option value="{{ item }}" {% if item == Business_Unit_Label %}selected{% endif %}>{{ item }}</option>
             {% endfor %}
         </select><br><br>
 
@@ -26,6 +26,15 @@
                 <option value="{{ item }}" {% if item == Employment_Type_Label %}selected{% endif %}>{{ item }}</option>
             {% endfor %}
         </select><br><br>
+
+        <label>Cost Center:</label>
+        <input list="cost_center_list" name="Cost_Center_Label" value="{{ Cost_Center_Label or '' }}">
+        <datalist id="cost_center_list">
+            {% for item in cost_centers %}
+                <option value="{{ item }}">
+            {% endfor %}
+        </datalist>
+        <br><br>
 
         <input type="submit" value="Predict">
     </form>
