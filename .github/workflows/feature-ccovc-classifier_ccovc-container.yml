@@ -28,19 +28,19 @@ jobs:
         run: |
           python -m venv venv
           source venv/bin/activate
-      
+        working-directory: Users/tan.cheng/hr-CCOVC/fastapi-ml-api
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
+        working-directory: Users/tan.cheng/hr-CCOVC/fastapi-ml-api
+
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            .
-            !venv/
+          path: Users/tan.cheng/hr-CCOVC/fastapi-ml-api
 
   deploy:
     runs-on: ubuntu-latest
@@ -58,4 +58,5 @@ jobs:
         with:
           app-name: 'ccovc-container'
           slot-name: 'Production'
+
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_F1A6B88C8A5B4FAE9727E5C9C5331265 }}
