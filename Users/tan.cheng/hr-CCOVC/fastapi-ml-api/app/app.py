@@ -8,7 +8,13 @@ from sklearn.base import BaseEstimator, TransformerMixin
 import sys
 from typing import List, Union
 from pathlib import Path
+import os
+from azure.storage.blob import BlobServiceClient
+from io import BytesIO
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 # ==========================
 # Define RareCategoryGrouper
@@ -31,19 +37,39 @@ class RareCategoryGrouper(BaseEstimator, TransformerMixin):
             X[col] = X[col].apply(lambda x: x if x in top_cats else self.new_label)
         return X
 
-    
-# Load model
+
+# === Azure Blob Configuration ===
+connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+model_container_name = os.getenv("MODEL_CONTAINER_NAME")
+training_data_container_name = os.getenv("TRAINING_DATA_CONTAINER_NAME")
+model_blob_name = os.getenv("MODEL_BLOB_NAME")
+training_data_blob_name = os.getenv("TRAINING_DATA_BLOB_NAME")
+
+blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+model_container_client = blob_service_client.get_container_client(model_container_name)
+training_data_container_client = blob_service_client.get_container_client(training_data_container_name)
+
+# === Load model from blob storage ===
+model_blob = model_container_client.download_blob(model_blob_name)
+model_bytes = BytesIO(model_blob.readall())
+
 sys.modules['__main__'].RareCategoryGrouper = RareCategoryGrouper
-model = joblib.load("model/Random_Forest_CCOVC_Model.pkl")
+model = joblib.load(model_bytes)
+
+# === Load cleaned_data.csv from blob storage ===
+csv_blob = training_data_container_client.download_blob(training_data_blob_name)
+csv_bytes = BytesIO(csv_blob.readall())
+df_cleaned = pd.read_csv(csv_bytes)
+
+# === Feature options for dropdowns ===
+legal_entity_options = sorted(df_cleaned["Legal Entity (Label)"].unique().tolist())
+business_unit_options = sorted(df_cleaned["Business unit (Label)"].unique().tolist())
+employment_type_options = sorted(df_cleaned["Employment Type (Label)"].unique().tolist())
+cost_center_options = sorted(df_cleaned["Cost Center (Label)"].unique().tolist())
+
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-
-# === Feature options for dropdowns ===
-legal_entity_options = sorted(pd.read_csv("data/cleaned_data.csv")["Legal Entity (Label)"].unique().tolist())
-business_unit_options = sorted(pd.read_csv("data/cleaned_data.csv")["Business unit (Label)"].unique().tolist())
-employment_type_options = sorted(pd.read_csv("data/cleaned_data.csv")["Employment Type (Label)"].unique().tolist())
-cost_center_options = sorted(pd.read_csv("data/cleaned_data.csv")["Cost Center (Label)"].unique().tolist())
 
 # Class mapping
 class_mapping = {0: "CC", 1: "OVC"}
