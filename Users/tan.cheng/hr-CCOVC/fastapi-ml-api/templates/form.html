@@ -27,10 +27,10 @@
             {% endfor %}
         </select><br><br>
 
-        <label>Cost Center:</label>
-        <input list="cost_center_list" name="Cost_Center_Label" value="{{ Cost_Center_Label or '' }}">
-        <datalist id="cost_center_list">
-            {% for item in cost_centers %}
+        <label>Job Classification:</label>
+        <input list="job_classification_list" name="Job_Classification_Label" value="{{ Job_Classification_Label or '' }}">
+        <datalist id="job_classification_list">
+            {% for item in job_classification %}
                 <option value="{{ item }}">
             {% endfor %}
         </datalist>
