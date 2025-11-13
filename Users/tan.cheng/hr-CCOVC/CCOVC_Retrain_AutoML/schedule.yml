@@ -1,0 +1,9 @@
+name: ccovc_retrain_schedule
+display_name: CCOVC Retraining Every 6 Months
+trigger:
+  type: recurrence
+  frequency: month
+  interval: 6              # Every 6 months
+  start_time: "2025-12-01T08:00:00"   # UTC ISO format (change as needed)
+create_job:
+  job: ./pipeline.yml      # Path to your YAML pipeline definition

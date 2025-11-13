@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import accuracy_score
 from category_encoders import TargetEncoder
 from datetime import datetime
@@ -45,18 +45,9 @@ def train_and_save_model(df: pd.DataFrame, output_path: str, blob_service_client
     """
 
     # ===== Step 1: Drop high-cardinality and irrelevant columns =====
-    drop_cols = [
-        "Cost Center (Label)",
-        "Job Title",
-        "Legal Entity (Label)",
-        "Position Position Title (Label)",
-        "Physical Location (Location Name)",
-        "Position Business Segment (Picklist Label)",
-        "Business unit (Label)",
-        "Work Contract (Picklist Label)",
-        "Employment Classification (Label)",
-        "Job Function (Label)",
-        "Job Classification (Label)"
+    drop_cols = ["Company (Label)", "Division (Label)", "Job Title", "Position Country (Label)", "Position Position Title (Label)", 
+                 "Physical Location (Location Name)", "Position Business Segment (Picklist Label)", "Cost Center (Label)",
+                 "Work Contract (Picklist Label)", "Employment Classification (Label)", "Employee Type (Label)", "Job Function (Label)"
     ]
     df = df.drop(columns=[c for c in drop_cols if c in df.columns], errors="ignore")
     df = df.dropna()
@@ -72,13 +63,24 @@ def train_and_save_model(df: pd.DataFrame, output_path: str, blob_service_client
 
     categorical_features = X.select_dtypes(include="object").columns.tolist()
 
-    # ===== Step 4: Build CV Setup =====
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    # Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, stratify=y, random_state=42
+        )
+
+    # Automatically determine how many classes to keep based on min frequency
+    min_freq = 5
+    job_counts = X_train["Job Classification (Label)"].value_counts()
+    top_job_classes = job_counts[job_counts >= min_freq].index.tolist()
+
+    # Grouping rules
     grouping_rules = {
-        "Employee Type (Label)": 2,
-        "Employment Type (Label)": 2
+        "Job Classification (Label)": len(top_job_classes)
     }
 
+    # ===== Step 4: Build CV Setup =====
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    
     models = {
         "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
         "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42)
@@ -138,7 +140,7 @@ def train_and_save_model(df: pd.DataFrame, output_path: str, blob_service_client
         ("encoder", TargetEncoder(cols=categorical_features)),
         ("classifier", RandomForestClassifier(n_estimators=100, random_state=42))
     ])
-    final_pipeline.fit(X, y)
+    final_pipeline.fit(X_train, y_train)
 
     # ===== Step 8: Save production model =====
     joblib.dump(final_pipeline, output_path)

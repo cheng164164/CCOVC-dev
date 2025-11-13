@@ -1,0 +1,17 @@
+# Core Azure ML SDK + identity
+azure-ai-ml
+azure-identity
+python-dotenv
+
+# Optional: if your script interacts directly with blob storage or metrics
+azure-storage-blob
+
+# Useful for local testing or debugging
+pandas
+numpy
+scikit-learn
+joblib
+category-encoders
+matplotlib
+openpyxl
+azureml-core

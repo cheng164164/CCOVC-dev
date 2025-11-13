@@ -1,0 +1,16 @@
+name: ccovc-env
+dependencies:
+  - python=3.10
+  - pip:
+      - azure-ai-ml
+      - azure-identity
+      - azure-storage-blob
+      - scikit-learn
+      - pandas
+      - numpy
+      - joblib
+      - category-encoders
+      - mlflow
+      - matplotlib  # optional for future visualizations
+      - openpyxl    # optional, but common with pandas
+      - azureml-core  

@@ -14,7 +14,7 @@ def main(mytimer):
 
     # === Step 1: Load raw training data from 'raw-data' container ===
     raw_container = "raw-data"
-    raw_file = "ccovc_raw.csv"
+    raw_file = "CCOVC_Predictor.csv"
     local_raw_path = "/tmp/raw.csv"
 
     raw_blob_client = blob_service_client.get_blob_client(container=raw_container, blob=raw_file)
@@ -32,7 +32,7 @@ def main(mytimer):
 
     # Upload cleaned dataset to 'training-data' container
     training_container = "training-data"
-    cleaned_blob_client = blob_service_client.get_blob_client(container=training_container, blob="ccovc_cleaned.csv")
+    cleaned_blob_client = blob_service_client.get_blob_client(container=training_container, blob="cleaned_data.csv")
     with open(local_clean_path, "rb") as data:
         cleaned_blob_client.upload_blob(data, overwrite=True)
 
