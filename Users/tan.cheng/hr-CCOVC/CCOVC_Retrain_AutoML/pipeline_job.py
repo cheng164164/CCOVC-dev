@@ -1,4 +1,9 @@
+'''
+## Custom Azure ML Pipeline for CCOVC Data Processing and Model Training (Using custom training code)
+'''
+
 from azure.ai.ml import MLClient, command, Input, Output, dsl
+from azure.ai.ml.automl import classification
 from azure.identity import DefaultAzureCredential
 from azure.ai.ml.entities import Environment, AmlCompute
 from azure.core.exceptions import ResourceNotFoundError
@@ -29,6 +34,7 @@ except ResourceNotFoundError:
     )
     ml_client.environments.create_or_update(env)
     print(f"✅ Environment '{env.name}' registered.")
+
 
 # === Ensure compute cluster exists ===
 try:
@@ -69,9 +75,9 @@ preprocess_component = command(
 
 
 
-# === Define Training Component ===
+# === Define Custom Training Component ===
 train_component = command(
-    name="ccovc_train_model",
+    name="ccovc_train_custom",
     display_name="Train Random Forest model on CCOVC data",
     code="./src",
     command=(
@@ -97,11 +103,11 @@ train_component = command(
 
 
 # === Define Register Model Component ===
-register_model_component = command(
-    name="register_ccovc_model",
-    display_name="Register CCOVC model from Blob",
+register_model_custom_component = command(
+    name="register_ccovc_model_custom",
+    display_name="Register custom CCOVC model (.pkl)",
     code="./src",
-    command="python register_model.py --model_path ${{inputs.model_path}}",
+    command="python register_model_custom.py --model_path ${{inputs.model_path}}",
     inputs={"model_path": Input(type="uri_folder")},        # The Input (which is output from train_component) is not acutally used in train.py but needed for pipeline ordering
     environment=env,
     environment_variables={
@@ -114,20 +120,18 @@ register_model_component = command(
     allow_reuse=False,
     )
 
-# === Define Pipeline ===
-@dsl.pipeline(name="ccovc_retrain_pipeline", compute="cpu-cluster", description="Retraining pipeline for CCOVC model")
-def ccovc_pipeline():
+
+# === Pipeline A: Custom training ===
+@dsl.pipeline(name="ccovc_pipeline_custom", compute="cpu-cluster")
+def ccovc_pipeline_custom():
     preprocess_step = preprocess_component()
     train_step = train_component(cleaned_data_path=preprocess_step.outputs.cleaned_data_path)
-    register_step = register_model_component(model_path=train_step.outputs.model_output)  
-    return
+    register_step = register_model_custom_component(model_path=train_step.outputs.model_output)
 
 
 # === Submit pipeline job ===
-pipeline_job = ccovc_pipeline()
+pipeline_job = ccovc_pipeline_custom()
 print("Submitting job...")
-print(pipeline_job)
-pipeline_job = ml_client.jobs.create_or_update(pipeline_job, experiment_name="ccovc_retrain_pipeline")
+pipeline_job = ml_client.jobs.create_or_update(pipeline_job, experiment_name="ccovc_custom_pipeline")
 print(f"🚀 Submitted pipeline job: {pipeline_job.name}")
-
 

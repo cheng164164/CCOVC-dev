@@ -1,3 +1,5 @@
+## Not used yet for now, but can set up scheduled retraining in future if pipeine_job.yml filess are created
+
 name: ccovc_retrain_schedule
 display_name: CCOVC Retraining Every 6 Months
 trigger:

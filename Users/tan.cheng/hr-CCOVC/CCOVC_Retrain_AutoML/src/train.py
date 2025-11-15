@@ -17,14 +17,17 @@ def main():
     df = pd.read_csv(args.cleaned_data_path)
 
     # === Step 2: Train model and save locally
-    local_model_path = "/tmp/ccovc_model.pkl"
-    train_and_save_model(df, local_model_path)
+    local_model_path = "/tmp/ccovc_custom_model.pkl"
+    conn_str = os.environ["BLOB_CONNECTION_STRING"]
+    blob_service = BlobServiceClient.from_connection_string(conn_str)
+
+    train_and_save_model(df, local_model_path, blob_service_client=blob_service)
     print(f"✅ Model trained and saved locally to: {local_model_path}")
 
     # === Step 3: Upload to Blob Storage
     conn_str = os.environ["BLOB_CONNECTION_STRING"]
     container_name = "model-store"
-    blob_name = "ccovc_model.pkl"  # You can make this dynamic with timestamp or version
+    blob_name = "ccovc-custom-model.pkl"  # You can make this dynamic with timestamp or version
 
     blob_service = BlobServiceClient.from_connection_string(conn_str)
     blob_client = blob_service.get_blob_client(container=container_name, blob=blob_name)

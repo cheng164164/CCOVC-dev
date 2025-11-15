@@ -33,5 +33,19 @@ def main():
     cleaned_df.to_csv(args.cleaned_data_path, index=False)
     print(f"✅ Cleaned data written to: {args.cleaned_data_path}")
 
+
+    container_name = "training-data"
+    blob_name = "cleaned_data.csv"
+    blob_path = f"/tmp/cleaned_data.csv"
+
+    # Save a local copy first
+    cleaned_df.to_csv(blob_path, index=False)
+
+    # Upload to Blob Storage
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+    with open(blob_path, "rb") as f:
+        blob_client.upload_blob(f, overwrite=True)
+    print(f"📤 Cleaned data uploaded to blob: {container_name}/{blob_name}")
+
 if __name__ == "__main__":
     main()

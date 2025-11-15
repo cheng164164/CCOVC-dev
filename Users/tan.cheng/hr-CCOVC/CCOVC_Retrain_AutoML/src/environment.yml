@@ -13,4 +13,5 @@ dependencies:
       - mlflow
       - matplotlib  # optional for future visualizations
       - openpyxl    # optional, but common with pandas
-      - azureml-core  
+      - azureml-core 
+      - mltable

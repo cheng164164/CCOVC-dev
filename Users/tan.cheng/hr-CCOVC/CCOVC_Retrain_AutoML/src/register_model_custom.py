@@ -10,8 +10,8 @@ from azureml.core import Run, Workspace, Model
 def main():
     conn_str = os.environ["BLOB_CONNECTION_STRING"]
     container = "model-store"
-    blob_name = "ccovc_model.pkl"
-    local_path = "/tmp/ccovc_model.pkl"
+    blob_name = "ccovc-custom-model.pkl"
+    local_path = "/tmp/ccovc_custom_model.pkl"
 
     # Download model from Blob
     print("📥 Downloading model from Blob Storage...")
@@ -28,10 +28,10 @@ def main():
 
     registered_model = Model.register(
         model_path=local_path,
-        model_name="ccovc-model",
+        model_name="ccovc-custom-model",
         workspace=ws,
         description="Model registered from Blob after pipeline run",
-        tags={"source": "pipeline", "stage": "post-train"},
+        tags={"source": "custom-training"},
     )
 
     print(f"📦 Registered model: {registered_model.name} v{registered_model.version}")
