@@ -66,6 +66,7 @@ legal_entity_options = sorted(df_cleaned["Legal Entity (Label)"].unique().tolist
 business_unit_options = sorted(df_cleaned["Business unit (Label)"].unique().tolist())
 employment_type_options = sorted(df_cleaned["Employment Type (Label)"].unique().tolist())
 job_classification_options = sorted(df_cleaned["Job Classification (Label)"].unique().tolist())
+division_options = sorted(df_cleaned["Division (Label)"].unique().tolist())
 
 
 app = FastAPI()
@@ -85,12 +86,14 @@ def test(request: Request):
         "request": request,
         "legal_entities": legal_entity_options[:5],
         "business_units": business_unit_options[:5],
+        "division_labels": division_options[:5],
         "employment_types": employment_type_options[:5],
         "job_classification": job_classification_options[:5],
         "prediction": "TestPrediction",
         "probability": 0.99,
         "Legal_Entity_Label": legal_entity_options[0],
         "Business_Unit_Label": business_unit_options[0],
+        "Division_Label": division_options[0],
         "Employment_Type_Label": employment_type_options[0],
         "Job_Classification_Label": job_classification_options[0]
     })
@@ -108,6 +111,7 @@ def form_page(request: Request):
     "request": request,
     "legal_entities": legal_entity_options,
     "business_units": business_unit_options,
+    "division_labels": division_options,
     "employment_types": employment_type_options,
     "job_classification": job_classification_options
     })
@@ -119,6 +123,7 @@ def predict_from_form(
     request: Request,
     Legal_Entity_Label: str = Form(...),
     Business_Unit_Label: str = Form(...),
+    Division_Label: str = Form(...),
     Employment_Type_Label: str = Form(...),
     Job_Classification_Label: str = Form(...)
     ):
@@ -126,6 +131,7 @@ def predict_from_form(
     df = pd.DataFrame([{
     "Legal Entity (Label)": Legal_Entity_Label,
     "Business unit (Label)": Business_Unit_Label,
+    "Division (Label)": Division_Label,
     "Employment Type (Label)": Employment_Type_Label,
     "Job Classification (Label)": Job_Classification_Label
     }])
@@ -137,6 +143,7 @@ def predict_from_form(
     "request": request,
     "legal_entities": legal_entity_options,
     "business_units": business_unit_options,
+    "division_labels": division_options,
     "employment_types": employment_type_options,
     "job_classification": job_classification_options,
     "prediction": class_mapping[pred],
@@ -145,6 +152,7 @@ def predict_from_form(
     # Passed back to retain selected values
     "Legal_Entity_Label": Legal_Entity_Label,
     "Business_Unit_Label": Business_Unit_Label,
+    "Division_Label": Division_Label,
     "Employment_Type_Label": Employment_Type_Label,
     "Job_Classification_Label": Job_Classification_Label
     })
@@ -155,6 +163,7 @@ def predict_from_form(
 class InputData(BaseModel):
     Legal_Entity_Label: str
     Business_Unit_Label: str
+    Division_Label: str
     Employment_Type_Label: str
     Job_Classification_Label: str
 
@@ -166,7 +175,7 @@ def predict(input_data: Union[InputData, List[InputData]]):
         df = pd.DataFrame([input_data.dict()])
 
     # Rename columns to match training data
-    df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Employment Type (Label)", "Job Classification (Label)"]
+    df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Division (Label)", "Employment Type (Label)", "Job Classification (Label)"]
 
     preds = model.predict(df)
     probs = model.predict_proba(df)[:, 1]
@@ -186,7 +195,7 @@ def predict_file(file: UploadFile = File(...)):
     df = pd.read_csv(file.file)
 
     # Rename columns to match training data
-    df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Employment Type (Label)", "Job Classification (Label)"]
+    df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Division (Label)", "Employment Type (Label)", "Job Classification (Label)"]
 
     preds = model.predict(df)
     probs = model.predict_proba(df)[:, 1]
