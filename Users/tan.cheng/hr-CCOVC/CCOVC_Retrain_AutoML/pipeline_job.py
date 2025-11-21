@@ -20,7 +20,7 @@ ml_client = MLClient(
     workspace_name=os.getenv("AZURE_WORKSPACE_NAME")
 )
 
-# === Ensure environment exists ===
+## === Ensure environment exists ===
 env_name = "ccovc-env"
 try:
     env = ml_client.environments.get(name=env_name, label="latest")
@@ -28,9 +28,9 @@ try:
 except ResourceNotFoundError:
     env = Environment(
         name=env_name,
-        description="Environment for CCOVC AutoML pipeline",
+        description="Environment for CCOVC Custom pipeline",
         conda_file="src/environment.yml",
-        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest"
+        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest"   # Use a base image suitable for custom training
     )
     ml_client.environments.create_or_update(env)
     print(f"✅ Environment '{env.name}' registered.")

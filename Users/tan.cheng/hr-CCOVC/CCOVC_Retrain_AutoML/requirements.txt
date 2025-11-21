@@ -1,3 +1,4 @@
+
 # Core Azure ML SDK + identity
 azure-ai-ml
 azure-identity
@@ -16,3 +17,10 @@ matplotlib
 openpyxl
 azureml-core
 mltable
+mlflow
+setuptools
+azureml-mlflow
+
+
+
+

@@ -20,8 +20,8 @@ ml_client = MLClient(
     workspace_name=os.getenv("AZURE_WORKSPACE_NAME")
 )
 
-# === Ensure environment exists ===
-env_name = "ccovc-env"
+##=== Ensure environment exists ===
+env_name = "ccovc-automl-env"
 try:
     env = ml_client.environments.get(name=env_name, label="latest")
     print(f"✅ Environment '{env_name}' already exists. Skipping creation.")
@@ -29,8 +29,7 @@ except ResourceNotFoundError:
     env = Environment(
         name=env_name,
         description="Environment for CCOVC AutoML pipeline",
-        conda_file="src/environment.yml",
-        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:latest"
+        image="mcr.microsoft.com/azureml/curated/ai-ml-automl-dnn:33"  # Use a curated AutoML image suitable for AutoML tasks
     )
     ml_client.environments.create_or_update(env)
     print(f"✅ Environment '{env.name}' registered.")
@@ -97,20 +96,53 @@ register_model_component = command(
     name="register_automl_model",
     display_name="Register AutoML model",
     code="./src",
-    command="python register_model_automl.py --model_path ${{inputs.model_path}}",
+    command=(
+        "python register_model_automl.py "
+        "--model_path ${{inputs.model_path}} "
+        "--model_uri_output ${{outputs.model_uri_output}}"
+    ),
     environment=env,
     compute="cpu-cluster",
     inputs={
         "model_path": Input(type="mlflow_model")
     },
+    outputs={"model_uri_output": Output(type="uri_folder", mode="rw_mount")},
     environment_variables={
         "AZURE_SUBSCRIPTION_ID": os.getenv("AZURE_SUBSCRIPTION_ID"),
         "AZURE_RESOURCE_GROUP": os.getenv("AZURE_RESOURCE_GROUP"),
-        "AZURE_WORKSPACE_NAME": os.getenv("AZURE_WORKSPACE_NAME")
+        "AZURE_WORKSPACE_NAME": os.getenv("AZURE_WORKSPACE_NAME"),
+        "BLOB_CONNECTION_STRING": os.getenv("BLOB_CONNECTION_STRING"),
     },
     allow_reuse=False,
 )
 
+
+# === Define Evaluation Component ===
+eval_component = command(
+    name="evaluate_automl_model",
+    code="./src",
+    command=(
+        "python automl_model_eval.py "
+        "--model_uri ${{inputs.model_uri}} "
+        "--eval_output ${{outputs.eval_output}}"
+    ),
+    environment=env,
+    compute="cpu-cluster",
+    inputs={
+        "model_uri": Input(type="uri_folder"),
+    },
+    outputs={
+        "eval_output": Output(type="uri_folder", mode="rw_mount")
+    },
+    
+    environment_variables={
+        "AZURE_SUBSCRIPTION_ID": os.getenv("AZURE_SUBSCRIPTION_ID"),
+        "AZURE_RESOURCE_GROUP": os.getenv("AZURE_RESOURCE_GROUP"),
+        "AZURE_WORKSPACE_NAME": os.getenv("AZURE_WORKSPACE_NAME"),
+        "BLOB_CONNECTION_STRING": os.getenv("BLOB_CONNECTION_STRING"),
+    },
+    allow_reuse=False,
+)
 
 # === Define AutoML Pipeline ===
 @dsl.pipeline(name="ccovc_pipeline_automl", compute="cpu-cluster")
@@ -144,6 +176,16 @@ def ccovc_pipeline_automl():
 
     # Step 4: Register the best model
     register_step = register_model_component(model_path=automl_step.outputs.best_model)
+
+    eval_step = eval_component(
+        model_uri=register_step.outputs.model_uri_output
+    )
+
+    eval_step.outputs.eval_output = Output(
+        type="uri_folder",
+        mode="rw_mount",
+        path="azureml://datastores/workspaceblobstore/paths/model-eval-output/ccovc-automl-eval"
+    )
 
     return {"best_model": automl_step.outputs.best_model}
 
