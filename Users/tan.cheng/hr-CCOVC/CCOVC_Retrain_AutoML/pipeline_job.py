@@ -129,9 +129,23 @@ def ccovc_pipeline_custom():
     register_step = register_model_custom_component(model_path=train_step.outputs.model_output)
 
 
-# === Submit pipeline job ===
+# Build the job
 pipeline_job = ccovc_pipeline_custom()
-print("Submitting job...")
-pipeline_job = ml_client.jobs.create_or_update(pipeline_job, experiment_name="ccovc_custom_pipeline")
-print(f"🚀 Submitted pipeline job: {pipeline_job.name}")
 
+# Register pipeline as component
+pipeline_component = pipeline_job.component
+registered_component = ml_client.components.create_or_update(pipeline_component)
+print(f"✅ Registered pipeline component: {registered_component.name}:{registered_component.version}")
+
+# Submit the job directly using the registered component (recommended)
+job_from_registered = registered_component(
+    # If you had pipeline inputs, pass them here like:
+    # my_param="value"
+)
+
+submitted_job = ml_client.jobs.create_or_update(
+    job_from_registered,
+    experiment_name="ccovc_custom_pipeline"
+)
+
+print(f"🚀 Job submitted from registered pipeline component: {submitted_job.name}")

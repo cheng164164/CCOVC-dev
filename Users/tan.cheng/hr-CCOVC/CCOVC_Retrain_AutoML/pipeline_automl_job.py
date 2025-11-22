@@ -9,6 +9,8 @@ from azure.ai.ml.entities import Environment, AmlCompute
 from azure.core.exceptions import ResourceNotFoundError
 from dotenv import load_dotenv
 import os
+from azure.ai.ml.exceptions import ValidationException
+from azure.core.exceptions import ResourceNotFoundError
 
 load_dotenv()
 
@@ -186,10 +188,26 @@ def ccovc_pipeline_automl():
         mode="rw_mount",
         path="azureml://datastores/workspaceblobstore/paths/model-eval-output/ccovc-automl-eval"
     )
+    return
 
-    return {"best_model": automl_step.outputs.best_model}
 
-# === Submit pipeline job ===
+# Build the job
 pipeline_job = ccovc_pipeline_automl()
-ml_client.jobs.create_or_update(pipeline_job, experiment_name="ccovc_automl_pipeline")
-print("✅ AutoML pipeline job submitted.")
+
+# Register pipeline as component
+pipeline_component = pipeline_job.component
+registered_component = ml_client.components.create_or_update(pipeline_component)
+print(f"✅ Registered pipeline component: {registered_component.name}:{registered_component.version}")
+
+# Submit the job directly using the registered component (recommended)
+job_from_registered = registered_component(
+    # If you had pipeline inputs, pass them here like:
+    # my_param="value"
+)
+
+submitted_job = ml_client.jobs.create_or_update(
+    job_from_registered,
+    experiment_name="ccovc_automl_pipeline"
+)
+
+print(f"🚀 Job submitted from registered pipeline component: {submitted_job.name}")
