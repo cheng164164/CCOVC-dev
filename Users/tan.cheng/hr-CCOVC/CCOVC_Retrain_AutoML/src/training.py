@@ -28,18 +28,13 @@ class RareCategoryGrouper(BaseEstimator, TransformerMixin):
         return X
 
 def train_and_save_model(df: pd.DataFrame, output_path: str, blob_service_client=None):
-    drop_cols = [
-        "Company (Label)", "Division (Label)", "Job Title",
-        "Position Country (Label)", "Position Position Title (Label)",
-        "Physical Location (Location Name)", "Position Business Segment (Picklist Label)",
-        "Cost Center (Label)", "Work Contract (Picklist Label)",
-        "Employment Classification (Label)", "Employee Type (Label)",
-        "Job Function (Label)"
-    ]
-    df = df.drop(columns=[c for c in drop_cols if c in df.columns], errors="ignore").dropna()
-
     if "CC / OVC" not in df.columns:
         raise ValueError("Missing target column 'CC / OVC'")
+    
+    selected_features = [
+        'Legal Entity (Label)', 'Business unit (Label)', 'Division (Label)', 'Employment Type (Label)' , 'Job Classification (Label)'
+        ]
+    df = df[["CC / OVC"]+ selected_features]
     df["CC / OVC"] = LabelEncoder().fit_transform(df["CC / OVC"])
 
     X = df.drop("CC / OVC", axis=1)
@@ -48,8 +43,19 @@ def train_and_save_model(df: pd.DataFrame, output_path: str, blob_service_client
 
     X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
+    # Automatically determine how many classes to keep based on min frequency
+    min_freq = 1
+    job_counts = X_train["Job Classification (Label)"].value_counts()
+    top_job_classes = job_counts[job_counts >= min_freq].index.tolist()
+    print("Top Job Classes to keep:", top_job_classes)
+
+    # Grouping rules
     grouping_rules = {
-        "Job Classification (Label)": X_train["Job Classification (Label)"].value_counts()[lambda x: x >= 5].count()
+        "Job Classification (Label)": len(top_job_classes),
+        "Employment Type (Label)": 4,
+        "Business unit (Label)": 50,
+        "Legal Entity (Label)": 30,
+        "Division (Label)": 25,
     }
 
     models = {
