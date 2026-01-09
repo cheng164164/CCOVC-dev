@@ -2,53 +2,197 @@
 <html>
 <head>
     <title>HR CC/OVC Classifier</title>
+
+    <!-- Tom Select CSS -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            line-height: 1.6;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        select, input {
+            padding: 5px;
+            width: 350px;
+            font-size: 14px;
+        }
+
+        .form-row {
+            margin-bottom: 18px;
+        }
+
+        input[type="submit"] {
+            width: 120px;
+            padding: 8px;
+            font-weight: bold;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        /* Make dropdown taller & scrollable so you can see many options */
+        .ts-dropdown {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+    </style>
 </head>
+
+
 <body>
-    <h2>Predict CC / OVC</h2>
-    <form action="/predict_form" method="post">
-        <label>Legal Entity:</label>
-        <select name="Legal_Entity_Label">
+
+<h2>Predict CC / OVC</h2>
+
+<form action="/predict_form" method="post">
+
+    <!-- Legal Entity -->
+    <div class="form-row">
+        <label>Legal Entity:</label><br>
+        <select id="legal_entity" name="Legal_Entity_Label">
+            <option value=""></option> <!-- EMPTY default -->
+
+            {# If user entered a new value, inject it as an option so it stays selected #}
+            {% if is_new_legal_entity and Legal_Entity_Label %}
+                <option value="{{ Legal_Entity_Label }}" selected>{{ Legal_Entity_Label }}</option>
+            {% endif %}
+
             {% for item in legal_entities %}
-                <option value="{{ item }}" {% if item == Legal_Entity_Label %}selected{% endif %}>{{ item }}</option>
+                <option value="{{ item }}"
+                    {% if item == Legal_Entity_Label and not is_new_legal_entity %}selected{% endif %}
+                >{{ item }}</option>
             {% endfor %}
-        </select><br><br>
+        </select>
+    </div>
 
-        <label>Business Unit:</label>
-        <select name="Business_Unit_Label">
-            {% for item in business_units %}
-                <option value="{{ item }}" {% if item == Business_Unit_Label %}selected{% endif %}>{{ item }}</option>
-            {% endfor %}
-        </select><br><br>
+    <!-- Division -->
+    <div class="form-row">
+        <label>Division:</label><br>
+        <select id="division" name="Division_Label">
+            <option value=""></option>
 
-        <label>Division:</label>
-        <select name="Division_Label">
+            {% if is_new_division and Division_Label %}
+                <option value="{{ Division_Label }}" selected>{{ Division_Label }}</option>
+            {% endif %}
+
             {% for item in division_labels %}
-                <option value="{{ item }}" {% if item == Division_Label %}selected{% endif %}>{{ item }}</option>
+                <option value="{{ item }}"
+                    {% if item == Division_Label and not is_new_division %}selected{% endif %}
+                >{{ item }}</option>
             {% endfor %}
-        </select><br><br>
+        </select>
+    </div>
 
-        <label>Employment Type:</label>
-        <select name="Employment_Type_Label">
+    <!-- Business Unit -->
+    <div class="form-row">
+        <label>Business Unit:</label><br>
+        <select id="business_unit" name="Business_Unit_Label">
+            <option value=""></option>
+
+            {% if is_new_business_unit and Business_Unit_Label %}
+                <option value="{{ Business_Unit_Label }}" selected>{{ Business_Unit_Label }}</option>
+            {% endif %}
+
+            {% for item in business_units %}
+                <option value="{{ item }}"
+                    {% if item == Business_Unit_Label and not is_new_business_unit %}selected{% endif %}
+                >{{ item }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Employment Type -->
+    <div class="form-row">
+        <label>Employment Type:</label><br>
+        <select id="employment_type" name="Employment_Type_Label">
+            <option value=""></option>
+
+            {% if is_new_employment_type and Employment_Type_Label %}
+                <option value="{{ Employment_Type_Label }}" selected>{{ Employment_Type_Label }}</option>
+            {% endif %}
+
             {% for item in employment_types %}
-                <option value="{{ item }}" {% if item == Employment_Type_Label %}selected{% endif %}>{{ item }}</option>
+                <option value="{{ item }}"
+                    {% if item == Employment_Type_Label and not is_new_employment_type %}selected{% endif %}
+                >{{ item }}</option>
             {% endfor %}
-        </select><br><br>
+        </select>
+    </div>
 
-        <label>Job Classification:</label>
-        <input list="job_classification_list" name="Job_Classification_Label" value="{{ Job_Classification_Label or '' }}">
-        <datalist id="job_classification_list">
+    <!-- Job Classification -->
+    <div class="form-row">
+        <label>Job Classification:</label><br>
+        <select id="job_classification" name="Job_Classification_Label">
+            <option value=""></option>
+
+            {# New job class free-text: show exactly what user typed #}
+            {% if is_new_job_class and Job_Classification_Label %}
+                <option value="{{ Job_Classification_Label }}" selected>{{ Job_Classification_Label }}</option>
+            {% endif %}
+
             {% for item in job_classification %}
-                <option value="{{ item }}">
+                <option value="{{ item.label }}"
+                    {% if item.label == Job_Classification_Label and not is_new_job_class %}selected{% endif %}
+                >
+                    {{ item.display }}
+                </option>
             {% endfor %}
-        </datalist>
-        <br><br>
+        </select>
+    </div>
 
-        <input type="submit" value="Predict">
-    </form>
+    <input type="submit" value="Predict">
+</form>
 
-    {% if prediction %}
-        <h3>Prediction: {{ prediction }}</h3>
-        <p>Probability of OVC: {{ probability }}</p>
+<!-- Show prediction -->
+{% if prediction %}
+    <h3>Prediction: {{ prediction }}</h3>
+
+    {% if not warning_new_role %}
+        <p>
+            Confidence level: {{ confidence_level }} ;
+            Probability of {{ prediction }}: {{ probability }}%
+        </p>
     {% endif %}
+
+    {% if warning_new_role %}
+        <p style="color: red; font-weight: bold;">
+            {{ warning_new_role }}
+        </p>
+    {% endif %}
+{% endif %}
+
+
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+
+<script>
+    const commonConfig = {
+        maxItems: 1,
+        create: true,          // allow free-text values
+        createOnBlur: true,    // create when user leaves the field
+        persist: false,
+        maxOptions: 5000,      // plenty; list will scroll
+        sortField: { field: "text", direction: "asc" },
+        placeholder: "Type to search or enter a new value..."
+    };
+
+    new TomSelect("#legal_entity", commonConfig);
+    new TomSelect("#division", commonConfig);
+    new TomSelect("#business_unit", commonConfig);
+    new TomSelect("#employment_type", commonConfig);
+
+    new TomSelect("#job_classification", {
+        ...commonConfig,
+        placeholder: "Type label or code, or enter a new one..."
+    });
+</script>
+
 </body>
 </html>

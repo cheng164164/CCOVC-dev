@@ -65,8 +65,33 @@ df_cleaned = pd.read_csv(csv_bytes)
 legal_entity_options = sorted(df_cleaned["Legal Entity (Label)"].unique().tolist())
 business_unit_options = sorted(df_cleaned["Business unit (Label)"].unique().tolist())
 employment_type_options = sorted(df_cleaned["Employment Type (Label)"].unique().tolist())
-job_classification_options = sorted(df_cleaned["Job Classification (Label)"].unique().tolist())
 division_options = sorted(df_cleaned["Division (Label)"].unique().tolist())
+
+# Membership sets (for unseen-value detection)
+legal_entity_set = set(legal_entity_options)
+business_unit_set = set(business_unit_options)
+employment_type_set = set(employment_type_options)
+division_set = set(division_options)
+job_class_label_set = set(df_cleaned["Job Classification (Label)"].astype(str).unique().tolist())
+
+# --- Job Classification: label + code mapping ---
+jc_df = (
+    df_cleaned[["Job Classification (Label)", "Job Classification (externalCode)"]]
+    .dropna()
+    .drop_duplicates()
+)
+
+job_classification_options = sorted(
+    [
+        {
+            "label": str(row["Job Classification (Label)"]),
+            "code": str(row["Job Classification (externalCode)"]),
+            "display": f'{row["Job Classification (Label)"]} ({row["Job Classification (externalCode)"]})',
+        }
+        for _, row in jc_df.iterrows()
+    ],
+    key=lambda x: x["label"],
+)
 
 
 app = FastAPI()
@@ -95,7 +120,7 @@ def test(request: Request):
         "Business_Unit_Label": business_unit_options[0],
         "Division_Label": division_options[0],
         "Employment_Type_Label": employment_type_options[0],
-        "Job_Classification_Label": job_classification_options[0]
+        "Job_Classification_Label": job_classification_options[0]["label"]
     })
 
 
@@ -118,6 +143,16 @@ def form_page(request: Request):
 
 
 ## === Form submission route ===
+def confidence_level_from_prob(p: float) -> str:
+    if p >= 0.8:
+        return "strong"
+    elif p >= 0.6:
+        return "medium"
+    elif p >= 0.5:
+        return "low"
+    else:
+        return "low"
+
 @app.post("/predict_form", response_class=HTMLResponse)
 def predict_from_form(
     request: Request,
@@ -137,7 +172,45 @@ def predict_from_form(
     }])
 
     pred = model.predict(df)[0]
-    prob = model.predict_proba(df)[0, 1]
+    probs = model.predict_proba(df)[0]
+
+    prob_cc = float(probs[0])
+    prob_ovc = float(probs[1])
+
+    # Use probability of the predicted class
+    if pred == 0:  # CC
+        prob = prob_cc
+    else:  # OVC
+        prob = prob_ovc
+
+    confidence_level = confidence_level_from_prob(prob)
+
+    # === Unseen feature detection (field-level flags) ===
+    is_new_legal_entity = Legal_Entity_Label not in legal_entity_set
+    is_new_business_unit = Business_Unit_Label not in business_unit_set
+    is_new_division = Division_Label not in division_set
+    is_new_employment_type = Employment_Type_Label not in employment_type_set
+    is_new_job_class = Job_Classification_Label not in job_class_label_set
+
+    unseen_fields = []
+    if is_new_legal_entity:
+        unseen_fields.append("Legal Entity")
+    if is_new_business_unit:
+        unseen_fields.append("Business Unit")
+    if is_new_division:
+        unseen_fields.append("Division")
+    if is_new_employment_type:
+        unseen_fields.append("Employment Type")
+    if is_new_job_class:
+        unseen_fields.append("Job Classification")
+
+    warning_new_role = ""
+    if unseen_fields:
+        fields_str = ", ".join(unseen_fields)
+        warning_new_role = (
+            f"Warning: This is a brand new role and does not exist "
+            f"in the current database. Please review and decide the CC/OVC label manually."
+        )    
 
     return templates.TemplateResponse("form.html", {
     "request": request,
@@ -147,16 +220,24 @@ def predict_from_form(
     "employment_types": employment_type_options,
     "job_classification": job_classification_options,
     "prediction": class_mapping[pred],
-    "probability": round(float(prob), 4),
+    "probability": round(float(prob)*100, 2),
+    "confidence_level": confidence_level,
+    "warning_new_role": warning_new_role,
 
     # Passed back to retain selected values
     "Legal_Entity_Label": Legal_Entity_Label,
     "Business_Unit_Label": Business_Unit_Label,
     "Division_Label": Division_Label,
     "Employment_Type_Label": Employment_Type_Label,
-    "Job_Classification_Label": Job_Classification_Label
-    })
+    "Job_Classification_Label": Job_Classification_Label,
 
+    # flags to tell the template if these are new
+    "is_new_legal_entity": is_new_legal_entity,
+    "is_new_business_unit": is_new_business_unit,
+    "is_new_division": is_new_division,
+    "is_new_employment_type": is_new_employment_type,
+    "is_new_job_class": is_new_job_class,
+    })
 
 ## === API prediction endpoint ===
 # Define input schema
@@ -178,13 +259,22 @@ def predict(input_data: Union[InputData, List[InputData]]):
     df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Division (Label)", "Employment Type (Label)", "Job Classification (Label)"]
 
     preds = model.predict(df)
-    probs = model.predict_proba(df)[:, 1]
+    prob_rows = model.predict_proba(df)
 
     results = []
-    for pred, prob in zip(preds, probs):
+    for pred, prob_row in zip(preds, prob_rows):
+        prob_cc = float(prob_row[0])
+        prob_ovc = float(prob_row[1])
+
+        if pred == 0:  # CC
+            prob = prob_cc
+        else:  # OVC
+            prob = prob_ovc
+
         results.append({
             "prediction": class_mapping[int(pred)],
-            "probability": round(float(prob), 4)
+            "probability": round(float(prob)*100, 2),
+            "confidence_level": confidence_level_from_prob(prob)
         })
 
     return results if isinstance(input_data, list) else results[0]
@@ -198,11 +288,29 @@ def predict_file(file: UploadFile = File(...)):
     df.columns = ["Legal Entity (Label)", "Business unit (Label)", "Division (Label)", "Employment Type (Label)", "Job Classification (Label)"]
 
     preds = model.predict(df)
-    probs = model.predict_proba(df)[:, 1]
+    prob_rows = model.predict_proba(df)
+
+    pred_labels = []
+    pred_probs = []
+    conf_levels = []
+
+    for pred, prob_row in zip(preds, prob_rows):
+        prob_cc = float(prob_row[0])
+        prob_ovc = float(prob_row[1])
+
+        if pred == 0:
+            prob = prob_cc
+        else:
+            prob = prob_ovc
+
+        pred_labels.append(class_mapping[int(pred)])
+        pred_probs.append(round(float(prob)*100, 2))
+        conf_levels.append(confidence_level_from_prob(prob))
 
     results = pd.DataFrame({
-        "prediction": [class_mapping[int(p)] for p in preds],
-        "probability": [round(float(prob), 4) for prob in probs]
+        "prediction": pred_labels,
+        "probability": pred_probs,
+        "confidence_level": conf_levels
     })
 
     return results.to_dict(orient="records")
