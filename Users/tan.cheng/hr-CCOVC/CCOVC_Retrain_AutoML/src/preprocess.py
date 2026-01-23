@@ -7,6 +7,7 @@ from preprocessing import preprocess_data
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cleaned_data_path", type=str)
+    parser.add_argument("--cache_buster", type=str, required=False)
     args = parser.parse_args()
 
     print("📥 Starting preprocessing step...")
