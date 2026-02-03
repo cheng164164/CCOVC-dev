@@ -17,7 +17,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
     data = df_clean.drop(columns=[
         'Employee ID', 'Employee Status (Label)', 'Position CC / OVC (Picklist Label)',
-        'Legal Entity (Legal Entity Code)', 'Job Classification (externalCode)',
+        'Legal Entity (Legal Entity Code)',
         'Job Classification', 'Cost Center (Cost Center Code)', 'Job Function',
         'Job Function (Job Function Code)'
     ], errors="ignore")
@@ -29,7 +29,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     df_temp = df.copy()
     df_temp = df_temp.drop(columns=['Position CC / OVC (Picklist Label)'], errors="ignore")
     df_temp = df_temp[df_temp['CC / OVC (External Code)'] != 'DSC']
-    df_temp = df_temp[df_temp['Employee Status (Label)'] == 'Active']
+    # df_temp = df_temp[df_temp['Employee Status (Label)'] == 'Active']
     df_temp = df_temp.drop_duplicates(subset=['Employee ID'], keep='last')
 
     compare_cols = [col for col in df_temp.columns if col not in ["CC / OVC (External Code)", 'Employee ID']]
