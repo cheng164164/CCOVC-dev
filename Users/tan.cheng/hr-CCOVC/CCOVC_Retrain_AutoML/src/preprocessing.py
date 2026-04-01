@@ -7,7 +7,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
     if "CC / OVC (External Code)" in df_clean.columns:
         df_clean = df_clean.dropna(subset=["CC / OVC (External Code)"])
-        df_clean = df_clean[df_clean["CC / OVC (External Code)"] != "DSC"]
+        df_clean = df_clean[df_clean['CC / OVC (External Code)'].isin(['CC', 'OVC'])]    # keep only rows with 'CC' or 'OVC' in the 'CC / OVC (External Code)' column
 
     if "Employee Status (Label)" in df_clean.columns:
         df_clean = df_clean[df_clean["Employee Status (Label)"] == "Active"]
@@ -28,7 +28,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     # === Ambiguous row filtering ===
     df_temp = df.copy()
     df_temp = df_temp.drop(columns=['Position CC / OVC (Picklist Label)'], errors="ignore")
-    df_temp = df_temp[df_temp['CC / OVC (External Code)'] != 'DSC']
+    df_temp = df_temp[df_temp['CC / OVC (External Code)'].isin(['CC', 'OVC'])]    # keep only rows with 'CC' or 'OVC' in the 'CC / OVC (External Code)' column
     # df_temp = df_temp[df_temp['Employee Status (Label)'] == 'Active']
     df_temp = df_temp.drop_duplicates(subset=['Employee ID'], keep='last')
 

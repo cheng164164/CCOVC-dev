@@ -2,6 +2,7 @@
 import os
 import json
 import joblib
+import shutil
 from datetime import datetime
 
 import pandas as pd
@@ -33,6 +34,18 @@ def upload_blob_file(connection_string, container_name, blob_name, local_file_pa
     print("✅ Upload complete.")
 
 
+def build_timestamped_model_name(blob_name, timestamp):
+    """
+    EXAMPLE:
+        Convert:
+            ccovc-custom-model.pkl
+        into:
+            ccovc-custom-model_20260206_153045.pkl
+    """
+    base_name, ext = os.path.splitext(blob_name)
+    return f"{base_name}_{timestamp}{ext}"
+
+
 def main():
     # =========================
     # Configuration
@@ -47,6 +60,8 @@ def main():
     test_blob_name = "cleaned_data KMT 11.17.25_testset.csv"
     test_local_path = "/tmp/test_dataset.csv"
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     # =========================
     # Download trained model
     # =========================
@@ -57,6 +72,25 @@ def main():
         blob_name=model_blob_name,
         download_path=model_local_path
     )
+
+    # =========================
+    # Save timestamped copy of model back to Blob
+    # =========================
+    timestamped_model_blob_name = build_timestamped_model_name(model_blob_name, timestamp)
+    timestamped_model_local_path = f"/tmp/{os.path.basename(timestamped_model_blob_name)}"
+
+    print("🗂 Creating timestamped local copy of model...")
+    shutil.copyfile(model_local_path, timestamped_model_local_path)
+
+    print(f"☁ Uploading timestamped model copy to blob: {timestamped_model_blob_name}")
+    upload_blob_file(
+        connection_string=conn_str,
+        container_name=model_container,
+        blob_name=timestamped_model_blob_name,
+        local_file_path=timestamped_model_local_path
+    )
+
+    print(f"✅ Timestamped model copy uploaded to: {timestamped_model_blob_name}")
 
     # =========================
     # Register model
@@ -120,6 +154,8 @@ def main():
     metrics = {
         "model_name": registered_model.name,
         "model_version": registered_model.version,
+        "source_model_blob": model_blob_name,
+        "timestamped_model_blob": timestamped_model_blob_name,
         "accuracy": accuracy,
         "classification_report": clf_report
     }
@@ -129,7 +165,6 @@ def main():
     # =========================
     # Save & upload metrics
     # =========================
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     metrics_filename = f"custom_training_metrics_{timestamp}.json"
     metrics_local_path = f"/tmp/{metrics_filename}"
     metrics_blob_path = f"model_test_results/{metrics_filename}"
