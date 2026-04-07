@@ -62,10 +62,22 @@ csv_bytes = BytesIO(csv_blob.readall())
 df_cleaned = pd.read_csv(csv_bytes)
 
 # === Feature options for dropdowns ===
-legal_entity_options = sorted(df_cleaned["Legal Entity (Label)"].unique().tolist())
-business_unit_options = sorted(df_cleaned["Business unit (Label)"].unique().tolist())
-employment_type_options = sorted(df_cleaned["Employment Type (Label)"].unique().tolist())
-division_options = sorted(df_cleaned["Division (Label)"].unique().tolist())
+def clean_dropdown_options(df: pd.DataFrame, column: str):
+    return sorted(
+        df[column]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .loc[lambda s: s != ""]
+        .unique()
+        .tolist()
+    )
+
+# === Feature options for dropdowns ===
+legal_entity_options = clean_dropdown_options(df_cleaned, "Legal Entity (Label)")
+business_unit_options = clean_dropdown_options(df_cleaned, "Business unit (Label)")
+employment_type_options = clean_dropdown_options(df_cleaned, "Employment Type (Label)")
+division_options = clean_dropdown_options(df_cleaned, "Division (Label)")
 
 # Membership sets (for unseen-value detection)
 legal_entity_set = set(legal_entity_options)
